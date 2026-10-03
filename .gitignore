@@ -1,4 +1,6 @@
 data/
+!mobile/offline-map/data/
+!mobile/offline-map/data/**
 .sites-runtime/
 *.log
 node_modules/

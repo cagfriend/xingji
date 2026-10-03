@@ -1,0 +1,82 @@
+{
+  "title": "Trip Manager redistributable offline basemap",
+  "generatedAt": "2026-10-03T11:44:24.775Z",
+  "sourceCommit": "ca96624a56bd078437bca8184e78163e5039ad19",
+  "sourceSha256": {
+    "countries": "239eec57ac17f100a11e2536cffc56752c318b50ae765b0918ff7aab4ce8f255",
+    "admin": "22d0e3ad85eb3e27f17cabf8ba2d50e554fbc27a87796ff891d958185da62fb5",
+    "roads": "66a0c7b438e92fd124822cc5921cfa11042f48c294ade5e0f03f2c6640fd0248",
+    "lakes": "2d036f53dedec578001c5c30c2959ee7d4eebc1306900fa4367c49929ec8f2d9",
+    "urban": "5136ffd816a9b28c0f295e6797b4c03eaa421be80d78b90f542db4a932dd4497",
+    "places": "9b8e3de09048ef00dfc70357dbb9fa324493f214b5e0ae4daf1aa79a8d10116b"
+  },
+  "license": "Public domain; Natural Earth data is in the public domain. No attribution is legally required; source attribution is retained here for provenance.",
+  "sources": {
+    "countries": {
+      "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_10m_admin_0_countries.geojson",
+      "authorRepository": "https://github.com/nvkelso/natural-earth-vector",
+      "scale": "10m",
+      "coverage": "global"
+    },
+    "admin": {
+      "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_10m_admin_1_states_provinces.geojson",
+      "authorRepository": "https://github.com/nvkelso/natural-earth-vector",
+      "scale": "10m",
+      "coverage": "global"
+    },
+    "roads": {
+      "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_10m_roads.geojson",
+      "authorRepository": "https://github.com/nvkelso/natural-earth-vector",
+      "scale": "10m",
+      "coverage": "global"
+    },
+    "lakes": {
+      "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_10m_lakes.geojson",
+      "authorRepository": "https://github.com/nvkelso/natural-earth-vector",
+      "scale": "10m",
+      "coverage": "global"
+    },
+    "urban": {
+      "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_10m_urban_areas.geojson",
+      "authorRepository": "https://github.com/nvkelso/natural-earth-vector",
+      "scale": "10m",
+      "coverage": "global"
+    },
+    "places": {
+      "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_10m_populated_places.geojson",
+      "authorRepository": "https://github.com/nvkelso/natural-earth-vector",
+      "scale": "10m",
+      "coverage": "global"
+    }
+  },
+  "manualCityCoordinates": {
+    "count": 34,
+    "nature": "Hand-entered representative city-center coordinates for mainland China provincial capitals, provincial-level municipalities and Hong Kong, Macao and Taiwan. Approximate display points, not authoritative survey coordinates.",
+    "source": "Administrative-capital names from the corresponding Chinese regional governments and common map gazetteers; coordinates are manually selected city-center coordinates, not Natural Earth measurements."
+  },
+  "processing": {
+    "coverage": "global",
+    "coordinateDecimalPlaces": 5,
+    "simplificationToleranceDegrees": {
+      "roads": 0.003,
+      "countries": 0.01,
+      "admin": 0.01,
+      "lakes": 0.01,
+      "urban": 0.01
+    },
+    "note": "Global geometry simplified for small offline overview maps. Does not represent cadastral, navigation or surveying accuracy."
+  },
+  "featureCounts": {
+    "countries": 258,
+    "admin": 4596,
+    "roads": 56600,
+    "lakes": 1355,
+    "urban": 11878,
+    "cities": 7340
+  },
+  "dataBytes": {
+    "json": 35030348,
+    "gzip": 9179172
+  },
+  "dataFile": "basemap.json"
+}
