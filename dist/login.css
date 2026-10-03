@@ -1,0 +1,24 @@
+:root{font-family:Inter,"Segoe UI","Microsoft YaHei",sans-serif;color:#18263d;background:#f3f5f9;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh}
+.login-layout{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 0%,#e9efff 0,transparent 52%),#f3f5f9}
+.login-card{width:min(100%,430px);background:#fff;border:1px solid #dde3ee;border-radius:22px;padding:38px;box-shadow:0 20px 70px #18263d12}
+.login-brand{display:inline-flex;align-items:center;gap:13px;color:#18263d;text-decoration:none;font-size:23px;font-weight:750;letter-spacing:3px;margin-bottom:46px}
+.brand-mark{width:43px;height:43px;display:grid;place-items:center;border-radius:13px;background:#14243e;color:#fff;font-size:28px}
+.login-brand small{display:block;margin-top:5px;color:#617088;font-size:9px;font-weight:500;letter-spacing:1.25px}
+.eyebrow{margin:0 0 10px;color:#315bdf;font-size:11px;font-weight:700;letter-spacing:2px}
+h1{margin:0 0 10px;font-size:30px;letter-spacing:-.5px}
+.intro{margin:0;color:#617088;font-size:14px;line-height:1.8}
+form{margin-top:28px}
+label{display:block;margin:0 0 9px;font-size:14px;font-weight:650}
+input{width:100%;height:48px;padding:0 13px;border:1px solid #cfd8e6;border-radius:9px;background:#fff;color:#18263d;font:inherit;outline:none}
+input:focus{border-color:#315bdf;box-shadow:0 0 0 3px #315bdf1b}
+button{width:100%;height:48px;margin-top:14px;padding:0 16px;border:0;border-radius:9px;background:#315bdf;color:#fff;font:inherit;font-size:15px;font-weight:650;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+button:hover{background:#2448bf}
+button:focus-visible{outline:3px solid #315bdf66;outline-offset:3px}
+button:disabled{cursor:wait;opacity:.68}
+.login-status{min-height:22px;margin:9px 0 0;color:#a32f3b;font-size:13px;line-height:1.6}
+.back-to-login{display:block;margin-top:17px;color:#315bdf;text-align:center;text-decoration:none;font-size:14px;font-weight:600}
+.back-to-login:hover{text-decoration:underline}
+.private-note{margin:24px 0 0;padding-top:18px;border-top:1px solid #edf0f5;color:#7a8799;font-size:12px;line-height:1.7}
+@media(max-width:520px){.login-layout{padding:15px}.login-card{padding:28px 23px;border-radius:17px}.login-brand{margin-bottom:38px}h1{font-size:27px}}

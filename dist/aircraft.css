@@ -1,0 +1,13 @@
+.trip-card-clickable{cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s}
+.trip-card-clickable:hover{border-color:#a8b9ed;box-shadow:0 6px 22px #18263d10}
+.trip-card-clickable:focus-visible{outline:3px solid #315bdf80;outline-offset:3px}
+.aircraft-info{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+.aircraft-info h3{font-size:16px;margin:0 0 12px}
+.aircraft-status{margin:0 0 12px}
+.aircraft-photo-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:16px}
+.aircraft-photo{margin:0;min-width:0}
+.aircraft-photo a{display:block;overflow:hidden;border-radius:10px;background:#f3f5f9}
+.aircraft-photo img{display:block;width:100%;height:155px;object-fit:cover}
+.aircraft-photo figcaption,.aircraft-updated{font-size:11px;color:var(--muted);line-height:1.6;margin:6px 0 0;overflow-wrap:anywhere}
+.aircraft-source,.aircraft-photo-search{color:var(--blue);text-decoration:underline;text-underline-offset:2px}
+.aircraft-source{display:inline-block;font-size:12px;margin-top:14px}

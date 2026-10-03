@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>历史统计 · 行迹</title><link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/style.css"><script type="module" src="/stats.js"></script></head>
+<body class="stats-page">
+<header class="topbar"><a class="brand" href="/" aria-label="返回行迹首页"><span class="brand-mark">↗</span><span>行迹<small>LOCAL TRAVEL JOURNAL</small></span></a><div class="header-right"><a href="/" class="button secondary">返回行程</a></div></header>
+<main class="stats-main">
+  <section class="stats-heading"><div><p class="eyebrow">TRAVEL HISTORY</p><h1>飞过的航线，留下的偏好。</h1><p class="muted">根据已保存的历史行程自动统计；机型已按基础型号归并。</p></div><div id="stats-summary" class="stats-summary" aria-live="polite"></div></section>
+  <section id="stats-empty" class="empty-state" hidden><span class="empty-symbol">↗</span><h3>还没有历史航班</h3><p>保存航班后，这里会生成你的榜单。</p></section>
+  <section id="stats-grid" class="stats-grid" aria-live="polite">
+    <article class="stats-card"><p class="eyebrow">ROUTES</p><h2>航线排行榜（前 10）</h2><ol id="route-ranking" class="ranking-list"></ol></article>
+    <article class="stats-card"><p class="eyebrow">AIRLINES</p><h2>航司排行榜</h2><ol id="airline-ranking" class="ranking-list"></ol></article>
+    <article class="stats-card"><p class="eyebrow">AIRCRAFT</p><h2>机型排行榜</h2><ol id="aircraft-ranking" class="ranking-list"></ol></article>
+  </section>
+</main>
+<footer><span>行迹 / 每一程都有迹可循</span><span>统计仅使用本机 JSON 行程</span></footer>
+</body></html>

@@ -1,0 +1,26 @@
+.leaflet-container.offline-map-enabled {
+  background: #dcecf2;
+}
+
+.offline-map-city-icon {
+  width: max-content !important;
+  height: auto !important;
+  border: 0;
+  background: transparent;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.offline-map-city {
+  display: inline-block;
+  color: #586269;
+  font: 500 11px/1.2 system-ui, -apple-system, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  letter-spacing: .01em;
+  text-shadow: -1px -1px 0 #f7f7f2, 1px -1px 0 #f7f7f2, -1px 1px 0 #f7f7f2, 1px 1px 0 #f7f7f2, 0 0 3px #f7f7f2;
+  white-space: nowrap;
+  user-select: none;
+}
+
+@media (max-width: 600px) {
+  .offline-map-city { font-size: 10px; }
+}

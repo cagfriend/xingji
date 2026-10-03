@@ -1,0 +1,24 @@
+{
+  "name": "local-trip-manager",
+  "version": "2.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "cloud:check": "wrangler deploy --dry-run --outdir cloud-build",
+    "cloud:runtime-test": "node scripts/cloud-runtime-test.mjs",
+    "cloud:password-test": "node scripts/cloud-password-runtime-test.mjs",
+    "cloud:password-setup": "node scripts/cloud-password-setup.mjs",
+    "cloud:deploy": "node scripts/cloud-preflight.mjs && wrangler deploy --config wrangler.local.jsonc",
+    "cloud:snapshot": "node scripts/cloud-import.mjs",
+    "cloud:login": "wrangler login",
+    "cloud:whoami": "wrangler whoami"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "wrangler": "4.141.0"
+  }
+}

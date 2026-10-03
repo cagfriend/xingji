@@ -1,0 +1,6 @@
+{
+  "appId": "cn.tangjp.xingji", "appName": "行迹", "webDir": "www",
+  "android": {"allowMixedContent": false, "webContentsDebuggingEnabled": false, "appendUserAgent": " XingjiLocal/1.0 (cn.tangjp.xingji; contact: you@example.com)"},
+  "server": {"androidScheme": "https"},
+  "plugins": {"CapacitorHttp": {"enabled": false}, "SystemBars": {"style": "LIGHT", "insetsHandling": "native"}}
+}

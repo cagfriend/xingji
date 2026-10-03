@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>登录 · 行迹</title>
+  <link rel="stylesheet" href="/login.css">
+  <script type="module" src="/login.js"></script>
+</head>
+<body>
+  <main class="login-layout">
+    <section class="login-card" aria-labelledby="login-title">
+      <a class="login-brand" href="/login" aria-label="行迹"><span class="brand-mark">↗</span><span>行迹<small>PERSONAL FLIGHT JOURNAL</small></span></a>
+      <p class="eyebrow">PRIVATE FLIGHT JOURNAL</p>
+      <h1 id="login-title">登录行迹</h1>
+      <p class="intro">输入你的访问密码，继续查看和管理航班记录。</p>
+      <form id="login-form" novalidate>
+        <label for="login-password">访问密码</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required autofocus>
+        <p id="login-status" class="login-status" role="status" aria-live="polite"></p>
+        <button id="login-submit" type="submit">登录<span aria-hidden="true">→</span></button>
+      </form>
+      <section id="logout-panel" hidden aria-labelledby="logout-title">
+        <h2 id="logout-title">正在退出登录</h2>
+        <p class="intro">正在清除此设备上的登录会话。</p>
+        <p id="logout-status" class="login-status" role="status" aria-live="polite"></p>
+        <button id="logout-retry" type="button">重试退出</button>
+        <a class="back-to-login" href="/login">返回登录页面</a>
+      </section>
+      <p class="private-note">这是个人行程空间。请勿在共享设备上保存密码。</p>
+    </section>
+  </main>
+</body>
+</html>
