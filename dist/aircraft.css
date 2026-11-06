@@ -3,6 +3,9 @@
 .trip-card-clickable:focus-visible{outline:3px solid #315bdf80;outline-offset:3px}
 .aircraft-info{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
 .aircraft-info h3{font-size:16px;margin:0 0 12px}
+.aircraft-info-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.aircraft-info-heading h3{margin:0}
+.aircraft-refresh{padding:6px 10px;min-height:34px;font-size:12px;white-space:nowrap}
 .aircraft-status{margin:0 0 12px}
 .aircraft-photo-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:16px}
 .aircraft-photo{margin:0;min-width:0}

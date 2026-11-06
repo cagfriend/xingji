@@ -129,13 +129,29 @@ export async function installOfflineBasemap(L, map) {
   const cityIndex = new SpatialIndex();
   let indexesReady = false;
   let indexBuildCancelled = false;
-  const styles = {
+  const lightStyles = {
     countries:{color:'#b8b8b2',weight:0.65,opacity:0.9,fillColor:'#f4f2eb',fillOpacity:0.94},
     admin:{color:'#c4c3bc',weight:0.48,opacity:0.78,fill:false},
     lakes:{color:'#a9cedb',weight:0.45,opacity:0.8,fillColor:'#d5e9ef',fillOpacity:0.96},
     roads:{color:'#cdbb9d',weight:1.1,opacity:0.9,fill:false},
     urban:{color:'#e7e1d4',weight:0.35,opacity:0.45,fillColor:'#e7e1d4',fillOpacity:0.6}
   };
+  const darkStyles = {
+    countries:{color:'#4a5765',weight:0.65,opacity:0.9,fillColor:'#1e2b36',fillOpacity:0.96},
+    admin:{color:'#596273',weight:0.48,opacity:0.78,fill:false},
+    lakes:{color:'#29495b',weight:0.45,opacity:0.8,fillColor:'#142c3c',fillOpacity:0.96},
+    roads:{color:'#68705e',weight:1.1,opacity:0.9,fill:false},
+    urban:{color:'#36444a',weight:0.35,opacity:0.45,fillColor:'#36444a',fillOpacity:0.6}
+  };
+  const systemTheme=globalThis.matchMedia?.('(prefers-color-scheme: dark)');
+  let styles=systemTheme?.matches?darkStyles:lightStyles;
+  const applyTheme=()=>{
+    styles=systemTheme?.matches?darkStyles:lightStyles;
+    container.dataset.offlineTheme=systemTheme?.matches?'dark':'light';
+    for(const [id,layer] of layers){const key=id.split(':')[0];if(styles[key])layer.setStyle?.(styles[key]);}
+  };
+  applyTheme();
+  systemTheme?.addEventListener?.('change',applyTheme);
   const enabledAtZoom = {countries:0, admin:4, lakes:0, roads:6, urban:7};
   let disposed = false;
   let visibleCounts = {};
@@ -228,7 +244,7 @@ export async function installOfflineBasemap(L, map) {
     dataset,
     refresh:sync,
     getVisibleCounts:()=>({...visibleCounts}),
-    remove(){disposed=true;indexBuildCancelled=true;map.off('moveend zoomend resize',sync);for(const layer of layers.values())if(map.hasLayer(layer))map.removeLayer(layer);layers.clear();delete container.dataset.offlineBasemap;container.classList.remove('offline-map-enabled');delete map.__offlineBasemapController;},
+    remove(){disposed=true;indexBuildCancelled=true;systemTheme?.removeEventListener?.('change',applyTheme);map.off('moveend zoomend resize',sync);for(const layer of layers.values())if(map.hasLayer(layer))map.removeLayer(layer);layers.clear();delete container.dataset.offlineBasemap;delete container.dataset.offlineTheme;container.classList.remove('offline-map-enabled');delete map.__offlineBasemapController;},
     get ready(){return container.dataset.offlineBasemap === 'ready';}
   };
   map.__offlineBasemapController = controller;

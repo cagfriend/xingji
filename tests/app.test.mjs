@@ -168,6 +168,32 @@ test('飞机资料接口统一无连字符注册号并返回带作者署名的�
   const cache=JSON.parse(await readFile(path.join(dir,'aircraft-cache.json'),'utf8'));
   assert.equal(cache.BHLM.photos[0].photographer,'测试摄影者');
 });
+test('资料源故障时独立返回照片，重新查询可绕过失败缓存',async t=>{
+  const calls=[];
+  const {req}=await fixture(t,undefined,{aircraftFetch:async(url,options)=>{
+    calls.push({url:String(url),options});
+    if(String(url).includes('planespotters'))return Response.json({photos:[{thumbnail:{src:'https://t.plnspttrs.net/example.jpg'},link:'https://www.planespotters.net/photo/123/example',photographer:'Photo Author'}]});
+    return new Response('unavailable',{status:503});
+  }});
+  const first=await req('/api/aircraft/B-3120');
+  assert.equal(first.status,200);assert.equal(first.data.photos[0].photographer,'Photo Author');
+  assert.equal(first.data.aircraft.model,'');
+  const count=calls.length;
+  await req('/api/aircraft/B3120');assert.equal(calls.length,count,'ordinary retry uses cooldown');
+  await req('/api/aircraft/B3120?refresh=1');assert.ok(calls.length>count,'explicit retry bypasses cooldown');
+  assert.ok(calls.every(call=>call.options.redirect==='follow'));
+});
+test('与行程机型冲突的飞机资料不采用，但照片仍可返回',async t=>{
+  const {req}=await fixture(t,undefined,{aircraftFetch:async url=>{
+    if(String(url).includes('planespotters'))return Response.json({photos:[{thumbnail:{src:'https://t.plnspttrs.net/example.jpg'},link:'https://www.planespotters.net/photo/123/example',photographer:'Photo Author'}]});
+    return new Response('<title>Aircraft Data B-1508, 2006 Columbia Aircraft Mfg LC-41-550FG Columbia 400, c/n 41624</title><table><tr><td>Manufacturer</td><td>Columbia</td></tr><tr><td>Model</td><td>LC-41-550FG</td></tr></table>');
+  }});
+  await req('/api/trips','POST',{confirmed:true,trips:[trip({registration:'B1508',aircraftType:'737-800'})]});
+  const result=await req('/api/aircraft/B1508');
+  assert.equal(result.data.aircraft.lookupStatus.metadata,'conflict');
+  assert.equal(result.data.aircraft.model,'');assert.equal(result.data.photos.length,1);
+  assert.equal((await req('/api/trips')).data.trips[0].aircraftType,'波音 737-800');
+});
 test('新增含注册号的航班会在后台预热并缓存资料',async t=>{
   let resolveRequest;const requested=new Promise(resolve=>{resolveRequest=resolve;});
   const {req,dir}=await fixture(t,undefined,{lookupAircraft:true,aircraftFetch:async url=>{resolveRequest(String(url));return Response.json({photos:[]});}});

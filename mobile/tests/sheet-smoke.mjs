@@ -1,0 +1,44 @@
+import {createServer} from 'node:http';
+import {readFile,mkdir} from 'node:fs/promises';
+import {createRequire} from 'node:module';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import assert from 'node:assert/strict';
+const {chromium}=createRequire(import.meta.url)('C:/Users/tjp/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),www=path.join(root,'www');
+const server=createServer(async(req,res)=>{try{const target=path.resolve(www,'.'+(new URL(req.url,'http://localhost').pathname==='/'?'/index.html':new URL(req.url,'http://localhost').pathname));if(!target.startsWith(www+path.sep))throw Error();res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.svg':'image/svg+xml'})[path.extname(target)]??'application/octet-stream');res.end(await readFile(target));}catch{res.writeHead(404);res.end();}});
+await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+const browser=await chromium.launch({headless:true,channel:'chrome'});
+try{
+ const page=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route('https://**/*',route=>route.abort());
+ await page.route('https://t.plnspttrs.net/sheet.svg',route=>route.fulfill({contentType:'image/svg+xml',headers:{'Access-Control-Allow-Origin':'*'},body:'<svg xmlns="http://www.w3.org/2000/svg" width="400" height="180"><rect width="400" height="180" fill="#315bdf"/></svg>'}));
+ await page.addInitScript(()=>{
+  const base={type:'flight',date:'2026-01-01',departure:'北京首都国际机场（PEK）',arrival:'上海虹桥国际机场（SHA）',departureTime:'07:00',arrivalTime:'09:15',aircraftType:'737-800',registration:'B-1234'};
+  localStorage.setItem('xingji:trips.json',JSON.stringify([{...base,id:'one',code:'CA1831'},{...base,id:'two',code:'CA1832',date:'2026-01-02'}]));
+  localStorage.setItem('xingji:aircraft-cache.json',JSON.stringify({B1234:{registration:'B-1234',model:'Boeing 737-800',year:2016,updatedAt:'2026-01-01',photos:[{image:'https://t.plnspttrs.net/sheet.svg',link:'https://www.planespotters.net/photo/1/example',photographer:'Test Photographer'}]}}));
+ });
+ await page.goto(`http://127.0.0.1:${server.address().port}`);await page.waitForSelector('#map-canvas[data-offline-basemap="ready"]');
+ await page.locator('.map-node-icon').first().click();
+ const airport=page.locator('#map-airport-dialog');await airport.waitFor({state:'visible'});
+ const assertHeight=async(dialog,fraction)=>{await page.waitForTimeout(230);const box=await dialog.boundingBox();assert.ok(Math.abs(box.height-844*fraction)<3,`height should be ${fraction} screen`);assert.ok(Math.abs(box.y+box.height-844)<2,'sheet is bottom aligned');};
+ await assertHeight(airport,.5);assert.equal(await airport.locator('.sheet-drag-handle').count(),1);
+ const handle=airport.locator('.sheet-drag-handle');let box=await handle.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2,box.y-170,{steps:10});await page.mouse.up();await assertHeight(airport,.75);
+ box=await handle.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+10);await page.mouse.down();await page.mouse.move(box.x+box.width/2,box.y+180,{steps:10});await page.mouse.up();await assertHeight(airport,.5);
+ await airport.locator('.map-group-item').first().click();
+ const detail=page.locator('#trip-detail-dialog');await detail.waitFor({state:'visible'});await page.waitForFunction(()=>document.querySelector('#trip-detail-dialog .sheet-photo img')?.naturalWidth>0);
+ await assertHeight(detail,.5);assert.equal(await detail.getByRole('button',{name:/展开/}).count(),0,'no expand button');
+ assert.equal(await page.evaluate(()=>!!(document.querySelector('.sheet-photo').compareDocumentPosition(document.querySelector('#trip-detail-dialog .dialog-header'))&Node.DOCUMENT_POSITION_FOLLOWING)),true,'photo is before flight heading');
+ assert.match(await detail.locator('.sheet-photo figcaption').textContent(),/Test Photographer/);
+ await detail.locator('.sheet-drag-handle').focus();await page.keyboard.press('ArrowUp');await assertHeight(detail,.75);
+ await detail.locator('.sheet-content').evaluate(el=>el.scrollTop=el.scrollHeight);assert.equal(await detail.getAttribute('data-sheet-state'),'expanded');
+ await page.keyboard.press('Escape');await detail.waitFor({state:'hidden'});
+ await page.locator('.map-node-icon').first().click();await assertHeight(airport,.5);await page.locator('#close-map-airport').click();
+ await page.locator('.map-route-hit').first().dispatchEvent('click');const group=page.locator('#map-group-dialog');await group.waitFor({state:'visible'});await assertHeight(group,.5);assert.equal(await group.locator('.map-group-item').count(),2);
+ await group.locator('.map-group-item').first().click();await detail.waitFor({state:'visible'});await assertHeight(detail,.5);
+ await page.emulateMedia({colorScheme:'dark'});assert.equal(await detail.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(23, 30, 42)');
+ await mkdir(path.join(root,'verification'),{recursive:true});await page.screenshot({path:path.join(root,'verification','sheet-half-phone.png')});
+ await detail.locator('.sheet-drag-handle').focus();await page.keyboard.press('ArrowUp');await assertHeight(detail,.75);await page.screenshot({path:path.join(root,'verification','sheet-expanded-phone.png')});
+ await page.setViewportSize({width:844,height:390});await page.waitForTimeout(250);const landscape=await detail.boundingBox();assert.ok(landscape.height<=390*.75+3);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ assert.deepEqual(errors,[]);console.log('Bottom sheet: half/expanded swipe, airport and route drill-down, photo-first order, close/reset, dark theme and landscape passed');
+}finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

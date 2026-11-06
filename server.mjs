@@ -33,9 +33,10 @@ export async function createApp({dataDir = path.join(root, 'data'), upstreamFetc
     await writeFile(temp, JSON.stringify(value, null, 2), 'utf8');
     await rename(temp, target);
   }
-  async function lookupAndCacheAircraft(registration, {refreshPhotos = false, origin = 'http://127.0.0.1:4317'} = {}) {
+  async function lookupAndCacheAircraft(registration, {refreshPhotos = false, force = false, origin = 'http://127.0.0.1:4317'} = {}) {
     const cache = await readJSON('aircraft-cache.json', {});
-    const result = await enrichAircraftRegistration({registration, cache, fetcher:aircraftFetch, refreshPhotos, origin, profileFallback:aircraftFetch === fetch ? windowsAircraftProfile : undefined});
+    const expectedModels=(await readJSON('trips.json',[])).filter(t=>registrationCompact(t.registration)===registrationCompact(registration)).map(t=>t.aircraftType).filter(Boolean);
+    const result = await enrichAircraftRegistration({registration, cache, fetcher:aircraftFetch, refreshPhotos, force, expectedModels, origin, profileFallback:aircraftFetch === fetch ? windowsAircraftProfile : undefined});
     if (!result.aircraft) return result;
     await serial(async () => {
       const latest = await readJSON('aircraft-cache.json', {});
@@ -71,7 +72,7 @@ export async function createApp({dataDir = path.join(root, 'data'), upstreamFetc
         let registration;
         try { registration = decodeURIComponent(aircraftMatch[1]); } catch { throw new RequestError('注册号格式不正确'); }
         if (registration.length > 24 || !registrationCompact(registration)) throw new RequestError('注册号格式不正确');
-        const result = await lookupAndCacheAircraft(registration, {origin:`http://${host}`});
+        const result = await lookupAndCacheAircraft(registration, {force:url.searchParams.get('refresh')==='1',origin:`http://${host}`});
         return send(res, 200, {aircraft:result.aircraft, photos:result.photos, registration:result.aircraft?.registration ?? registration});
       }
       if (route === '/api/places' && req.method === 'GET') return send(res, 200, {places: await readJSON('places.json', {})});

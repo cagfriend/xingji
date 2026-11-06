@@ -130,6 +130,46 @@ try{
  assert.equal(await page.locator('#aircraft-ranking li').count(),7,'all base aircraft models are shown');
  await page.evaluate(original=>localStorage.setItem('xingji:trips.json',JSON.stringify(original)),initialTrips);
  await page.reload();await page.waitForFunction(()=>document.querySelector('#stats-summary')?.textContent.includes('1'));
+ // An unavailable metadata source must never prevent independent photos from rendering.
+ let photoQueries=0;
+ await page.route('https://airport-data.com/**',route=>route.fulfill({status:503,body:'unavailable'}));
+ await page.route('https://api.planespotters.net/**',route=>{
+   photoQueries++;
+   return route.fulfill({contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*','Access-Control-Allow-Methods':'GET,OPTIONS'},body:JSON.stringify({photos:[{thumbnail_large:{src:'https://t.plnspttrs.net/test-large.png'},thumbnail:{src:'https://t.plnspttrs.net/test-thumb.svg'},link:'https://www.planespotters.net/photo/123/example',photographer:'Photo Test Author'}]})});
+ });
+ await page.route('https://t.plnspttrs.net/test-large.png',route=>route.fulfill({status:404,body:'missing image'}));
+ await page.route('https://t.plnspttrs.net/test-thumb.svg',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120"><rect width="200" height="120" fill="#315bdf"/></svg>'}));
+ await page.evaluate(original=>localStorage.setItem('xingji:trips.json',JSON.stringify(original.map(t=>({...t,registration:'B-3120'})))),initialTrips);
+ await page.reload();await page.waitForFunction(()=>document.querySelector('#stats-summary')?.textContent.includes('1'));
+ await page.locator('[data-history-view="list"]').click();
+ await page.locator('#trip-list .trip-card').click();
+ await page.waitForSelector('.aircraft-photo-gallery img');
+ await page.waitForFunction(()=>document.querySelector('.aircraft-photo-gallery img')?.naturalWidth>0);
+ assert.match(await page.locator('.aircraft-photo-gallery figcaption').textContent(),/Photo Test Author/,'photos retain photographer attribution with no metadata');
+ assert.equal(await page.locator('.aircraft-info-content .map-detail-grid').count(),0,'metadata failure does not fabricate aircraft information');
+ assert.match(await page.locator('.aircraft-photo-gallery img').getAttribute('src'),/test-thumb|^blob:/,'failed large photo falls back to a cached thumbnail');
+ const queriesBeforeRefresh=photoQueries;
+ await page.locator('.aircraft-refresh').click();
+ await page.waitForFunction(()=>document.querySelector('.aircraft-refresh')?.disabled===false);
+ assert.ok(photoQueries>queriesBeforeRefresh,'explicit refresh bypasses photo cache');
+ await page.locator('.aircraft-photo-gallery figcaption').scrollIntoViewIfNeeded();
+ await page.screenshot({path:path.join(root,'verification','aircraft-photo-only-phone.png')});
+ await page.locator('#close-trip-detail').click();
+ const cachedPhotos=await page.evaluate(()=>JSON.parse(localStorage.getItem('xingji:aircraft-cache.json')).B3120.photos);
+ assert.match(cachedPhotos[0].localUri,/^idb:/,'historical photo bytes are persisted rather than only their URL');
+ const queriesBeforeOffline=photoQueries;
+ let offlineRequests=0;
+ for(const pattern of ['https://api.planespotters.net/**','https://airport-data.com/**','https://t.plnspttrs.net/**'])await page.route(pattern,route=>{offlineRequests++;return route.abort();});
+ await page.reload();await page.waitForFunction(()=>document.querySelector('#trip-count')?.textContent==='1');
+ await page.locator('[data-tab="history"]').click();await page.locator('[data-history-view="list"]').click();
+ await page.locator('#trip-list .trip-card').click();
+ await page.waitForFunction(()=>document.querySelector('.aircraft-photo-gallery img')?.naturalWidth>0);
+ assert.match(await page.locator('.aircraft-photo-gallery img').getAttribute('src'),/^blob:/,'photo is hydrated from local bytes after reload');
+ assert.equal(photoQueries,queriesBeforeOffline,'cached history does not re-query providers');
+ assert.equal(offlineRequests,0,'offline history view needs no provider or photo download request');
+ await page.locator('#close-trip-detail').click();
+ await page.evaluate(original=>localStorage.setItem('xingji:trips.json',JSON.stringify(original)),initialTrips);
+ await page.reload();await page.waitForFunction(()=>document.querySelector('#stats-summary')?.textContent.includes('1'));
  await mkdir(path.join(root,'verification'),{recursive:true});await page.screenshot({path:path.join(root,'verification','stats-phone.png'),fullPage:true});
  await page.goto(address);await page.waitForFunction(()=>document.querySelector('#trip-count')?.textContent==='1');
  await page.locator('[data-tab="map"]').click();
@@ -145,6 +185,6 @@ try{
  await page.waitForTimeout(150);
  assert.equal(await page.locator('.mobile-tabbar').isVisible(),true,'landscape retains bottom navigation');
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'landscape has no horizontal overflow');
- const report={passed:true,checks:['地图为唯一首页卡片','四栏导航','提示在导航上方（横竖屏与系统安全区）','设置集中API和备份入口','确认前不保存','新增与刷新后保留','自定义 API 配置','AI 识别与重复阻止','历史统计/具体行程切换','旧统计地址兼容','统计三榜单','737 细分型归并','地图切回恢复尺寸','页面无运行错误','手机无横向溢出']};
+ const report={passed:true,checks:['地图为唯一首页卡片','四栏导航','提示在导航上方（横竖屏与系统安全区）','设置集中API和备份入口','确认前不保存','新增与刷新后保留','自定义 API 配置','AI 识别与重复阻止','历史统计/具体行程切换','旧统计地址兼容','统计三榜单','737 细分型归并','无飞机资料仍显示照片及作者','大图失败回退缩略图','重新查询绕过缓存','地图切回恢复尺寸','页面无运行错误','手机无横向溢出']};
  await writeFile(path.join(root,'verification','browser-smoke.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

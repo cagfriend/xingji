@@ -29,7 +29,7 @@ function responseValue(result) {
   return result;
 }
 
-export function createLocalService({storage, request, places, uuid=()=>crypto.randomUUID(), now=()=>Date.now()}={}) {
+export function createLocalService({storage, request, places, uuid=()=>crypto.randomUUID(), now=()=>Date.now(), aircraftEnricher=enrichAircraftRegistration, cachePhoto=async(photo)=>photo}={}) {
   if (!storage || typeof storage.read!=='function' || typeof storage.write!=='function') throw new TypeError('storage 必须提供异步 read/write');
   if (typeof request!=='function') throw new TypeError('request 必须是函数');
   const directory=places ? createAirportDirectory(places) : null;
@@ -38,21 +38,37 @@ export function createLocalService({storage, request, places, uuid=()=>crypto.ra
   const clock=()=>{const value=typeof now==='function'?now():now;return value instanceof Date?value.getTime():Number(value);};
   const read=async(key,fallback)=>{const value=await storage.read(key);return value==null?fallback:value;};
   const write=(key,value)=>storage.write(key,value);
-  const requestJSON=async(url,{method='GET',headers={},data}={})=>responseValue(await request({url,method,headers,data}));
+  const requestJSON=async(url,{method='GET',headers={},data,signal,redirect,timeout}={})=>responseValue(await request({url,method,headers,data,signal,redirect,timeout}));
 
-  async function lookupAircraft(registration) {
+  async function lookupAircraft(registration,{force=false}={}) {
     const cache=await read(aircraftKey,{});
-    const result=await enrichAircraftRegistration({registration,cache,fetcher:async(url,options={})=>{
-      const headers={...options.headers,'User-Agent':'XingjiLocal/1.0 (cn.tangjp.xingji; contact: you@example.com)'};
-      delete headers.Origin;delete headers.Referer;
-      const response=await requestJSON(url,{method:options.method??'GET',headers,data:options.body});
+    const savedTrips=(await read(tripKey,[])).filter(trip=>trip?.type==='flight'&&registrationCompact(trip.registration)===registrationCompact(registration));
+    const expectedModels=[...new Set(savedTrips.map(trip=>String(trip.aircraftType??'').trim()).filter(Boolean))];
+    const today=new Intl.DateTimeFormat('en-CA',{timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(clock()));
+    const preferCache=savedTrips.some(trip=>typeof trip.date==='string'&&trip.date<today);
+    const result=await aircraftEnricher({registration,cache,expectedModels,force,preferCache,fetcher:async(url,options={})=>{
+      const headers={...options.headers};
+      if(!Object.keys(headers).some(name=>name.toLowerCase()==='user-agent'))headers['User-Agent']='XingjiLocal/1.0 (cn.tangjp.xingji; contact: tangjp4@gmail.com)';
+      const response=await requestJSON(url,{method:options.method??'GET',headers,data:options.body,signal:options.signal,redirect:options.redirect,timeout:options.timeout});
       if (typeof response==='string') return new Response(response,{status:200});
       return response;
     },now:clock(),origin:''});
-    if (result.aircraft) await serial(async()=>{
+    if (result.aircraft) {
+      if(preferCache&&Array.isArray(result.photos)){
+        const oldPhotos=Array.isArray(cache?.[registrationCompact(registration)]?.photos)?cache[registrationCompact(registration)].photos:[];
+        const photos=[];
+        for(const photo of result.photos){
+          const old=oldPhotos.find(item=>item?.link===photo?.link&&item?.localUri);
+          try{photos.push(await cachePhoto(force?photo:(old??photo),{force,previousPhoto:old}));}catch{photos.push(old??photo);}
+        }
+        result.photos=photos;
+        result.aircraft.photos=photos;
+      }
+      await serial(async()=>{
       const latest=await read(aircraftKey,{});
       await write(aircraftKey,{...latest,[registrationCompact(registration)]:result.aircraft});
-    });
+      });
+    }
     return {aircraft:result.aircraft,photos:result.photos,registration:result.aircraft?.registration??registration};
   }
   function warmAircraft(trips) {
@@ -61,7 +77,8 @@ export function createLocalService({storage, request, places, uuid=()=>crypto.ra
   }
 
   async function handle(path,{method='GET',body}={}) {
-    const route=String(path).split('?')[0];
+    const parsedPath=new URL(String(path),'http://local.invalid');
+    const route=parsedPath.pathname;
     method=String(method).toUpperCase();
     if (route==='/api/trips' && method==='GET') {
       const trips=(await read(tripKey,[])).filter(trip=>trip?.type==='flight');
@@ -132,7 +149,7 @@ export function createLocalService({storage, request, places, uuid=()=>crypto.ra
     if(aircraftMatch&&method==='GET'){
       let registration;try{registration=decodeURIComponent(aircraftMatch[1]);}catch{throw new ServiceError('注册号格式不正确');}
       if(registration.length>24||!registrationCompact(registration))throw new ServiceError('注册号格式不正确');
-      return lookupAircraft(registration);
+      return lookupAircraft(registration,{force:parsedPath.searchParams.get('refresh')==='1'});
     }
     throw new ServiceError('未找到接口',404);
   }

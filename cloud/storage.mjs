@@ -66,6 +66,7 @@ function validateImportedAircraft(value) {
     const registration = typeof item.registration === 'string' ? item.registration.slice(0, 24) : '';
     const photos = Array.isArray(item.photos) ? item.photos.slice(0, 3).map(photo => ({
       image: trustedHttps(photo?.image, PHOTO_HOSTS),
+      thumbnail: trustedHttps(photo?.thumbnail, PHOTO_HOSTS),
       link: trustedHttps(photo?.link, new Set(['www.planespotters.net'])),
       photographer: typeof photo?.photographer === 'string' ? photo.photographer.slice(0, 160) : '',
       modeSCode: typeof photo?.modeSCode === 'string' && /^[0-9A-F]{6}$/i.test(photo.modeSCode) ? photo.modeSCode.toUpperCase() : ''
@@ -78,8 +79,18 @@ function validateImportedAircraft(value) {
       modeSCode: typeof item.modeSCode === 'string' && /^[0-9A-F]{6}$/i.test(item.modeSCode) ? item.modeSCode.toUpperCase() : '',
       sourceUrl: trustedHttps(item.sourceUrl, new Set(['airport-data.com', 'www.airport-data.com'])),
       updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt.slice(0, 100) : '',
+      year: Number.isInteger(item.year) && item.year>=1900 && item.year<=2100 ? item.year : null,
+      ...(Number.isInteger(item.resolverVersion) && item.resolverVersion>=0 && item.resolverVersion<=100 ? {resolverVersion:item.resolverVersion} : {}),
+      ...(item.lookupStatus && typeof item.lookupStatus==='object' ? {lookupStatus:{
+        metadata:['ok','unavailable','not-found','conflict'].includes(item.lookupStatus.metadata) ? item.lookupStatus.metadata : 'unavailable',
+        photos:['ok','empty','unavailable'].includes(item.lookupStatus.photos) ? item.lookupStatus.photos : 'unavailable'
+      }} : {}),
+      ...(['ok','empty','unavailable'].includes(item.photosStatus) ? {photosStatus:item.photosStatus} : {}),
+      ...(typeof item.metadataError==='string' ? {metadataError:item.metadataError.slice(0,160)} : {}),
+      ...(typeof item.photosError==='string' ? {photosError:item.photosError.slice(0,160)} : {}),
       photos,
       photosUpdatedAt: Number.isFinite(item.photosUpdatedAt) ? item.photosUpdatedAt : 0,
+      photosAttemptedAt: Number.isFinite(item.photosAttemptedAt) ? item.photosAttemptedAt : 0,
       lookupAttemptedAt: Number.isFinite(item.lookupAttemptedAt) ? item.lookupAttemptedAt : 0
     };
   }

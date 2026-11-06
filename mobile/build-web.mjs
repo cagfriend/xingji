@@ -44,6 +44,7 @@ index=index.replace('底图未能加载，请检查网络连接；航班数据�
 index=index.replace('<div class="map-legend">','<div class="map-legend"><button id="map-offline-toggle" type="button" aria-pressed="false">仅离线底图</button>');
 index=index.replace('；地图资料：','；离线底图：<a href="https://www.naturalearthdata.com/about/terms-of-use/" target="_blank" rel="noopener noreferrer">Natural Earth</a>（概览级）；联网地图：');
 index=index.replace('</head>','<link rel="stylesheet" href="/offline-map/layer.css">\n</head>');
+index=index.replace('<meta charset="UTF-8">','<meta charset="UTF-8"><meta name="color-scheme" content="light dark">');
 index=index.replace('<script type="module" src="/app.js"></script>','<script type="module" src="/bridge.js"></script>');
 await writeFile(path.join(www,'index.html'),index);
 
@@ -51,6 +52,10 @@ let stats=index.replace('<body>','<body data-initial-tab="history">');
 await writeFile(path.join(www,'stats.html'),stats);
 
 let map=await readFile(path.join(www,'map.js'),'utf8');
+const mapDetailAnchor=/function openDetail\(trip\)\{[\s\S]*?\n\}\nfunction openGroup/;
+if(!mapDetailAnchor.test(map))throw new Error('Map detail source changed; sheet integration must be updated');
+map=map.replace(mapDetailAnchor,"function openDetail(trip){\n  window.dispatchEvent(new CustomEvent('xingji:flight-details',{detail:trip}));\n}\nfunction openGroup");
+map=map.replace("L.polyline(points,{color:'#315bdf',weight:3.5", "L.polyline(points,{className:'map-route-line',color:'#315bdf',weight:3.5");
 map="import {installOfflineBasemap} from './offline-map/layer.js';\n"+map;
 map=map.replace(/async function prepareTileCache\(\)\{[\s\S]*?\n\}\nconst tileCacheReady=prepareTileCache\(\);/,"async function prepareTileCache(){return;}\nconst tileCacheReady=Promise.resolve();");
 map=map.replace('  const tile=L.tileLayer(', '  state.map.setView([34,105],4);\n  await installOfflineBasemap(L,state.map);\n  const tile=L.tileLayer(');
@@ -73,6 +78,20 @@ map += '\nwindow.addEventListener("xingji:map-visible",()=>{if(!state.map)return
 await writeFile(path.join(www,'map.js'),map);
 
 let app=await readFile(path.join(www,'app.js'),'utf8');
+const detailBodyAnchor="  $('#trip-detail-title').textContent=`航班 ${trip.code}`;body.replaceChildren();";
+if(!app.includes(detailBodyAnchor)||!app.includes('content.append(gallery);'))throw new Error('Aircraft detail source changed; photo-first layout must be updated');
+app=app.replace(detailBodyAnchor,detailBodyAnchor+`
+  dialog.querySelector('.sheet-photo')?.remove();
+  const photoArea=node('div','sheet-photo');dialog.querySelector('.dialog-header').before(photoArea);
+  const summary=node('div','sheet-flight-summary');
+  for(const [airport,time] of [[trip.departure,trip.departureTime],[trip.arrival,trip.arrivalTime]]){
+    const endpoint=node('div');endpoint.append(node('strong','',airport||'—'),node('span','',time||'—'));summary.append(endpoint);
+  }
+  body.append(summary);`);
+app=app.replace('content.replaceChildren();\n    const aircraft=result.aircraft;','content.replaceChildren();\n    photoArea.replaceChildren();\n    const aircraft=result.aircraft;');
+app=app.replace('content.append(gallery);','photoArea.replaceChildren(gallery);');
+app=app.replace("heading.append(node('h3','','飞机资料与照片'))","heading.append(node('h3','','执飞飞机'))");
+app=app.replace("$('#close-trip-detail').onclick=", "window.addEventListener('xingji:flight-details',event=>openTripDetails(event.detail));\n$('#close-trip-detail').onclick=");
 app="import {simplifyReviewForm,requireEssentialDrafts} from './review-form.js';\n"+app;
 const reviewAnchor="    form.append(grid,node('div','draft-error'));root.append(form);";
 if(!app.includes(reviewAnchor))throw new Error('Review form source changed; minimal form adaptation must be updated');

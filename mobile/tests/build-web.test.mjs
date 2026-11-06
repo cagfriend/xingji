@@ -21,6 +21,8 @@ test('Android web build emits only the local allowlisted frontend',async()=>{
   assert.doesNotMatch(app,/填写航班号和日期后即可确认保存/);
   assert.doesNotMatch(review,/仅航班号和日期必填/);
   assert.match(index,/src="\/bridge\.js"/);
+  assert.match(index,/<meta name="color-scheme" content="light dark">/);
+  assert.match(map,/className:'map-route-line'/);
   assert.match(stats,/src="\/bridge\.js"/);
   assert.match(index,/id="cloud-signout"[^>]*hidden/);
   assert.match(index,/id="cloud-data-tools"[^>]*hidden/);
@@ -44,6 +46,10 @@ test('Android web build emits only the local allowlisted frontend',async()=>{
   assert.ok(paths.includes('runtime/lib.mjs'));
   assert.ok(paths.includes('runtime/airport-directory.mjs'));
   assert.ok(paths.includes('runtime/aircraft-data.mjs'));
+  assert.ok(!paths.includes('runtime/network.mjs'),'transport helper is bundled into bridge.js, not exposed as a runtime asset');
+  assert.match(await readFile(path.join(www,'bridge.js'),'utf8'),/withRequestDeadline/);
+  assert.match(await readFile(path.join(www,'bridge.js'),'utf8'),/connectTimeout: Math\.min\(15e3, deadline\)/);
+  assert.match(await readFile(path.join(www,'bridge.js'),'utf8'),/readTimeout: deadline/);
   assert.ok(paths.includes('offline-map/data/basemap.json'));
   assert.match(map,/await installOfflineBasemap\(L,state.map\)/);
   assert.ok(!paths.some(file=>/login|tile-cache-sw|\.bak$|\.tmp$/.test(file)||(/(^|\/)data\//.test(file)&&!file.startsWith('offline-map/data/'))));
@@ -53,7 +59,7 @@ test('Android web build emits only the local allowlisted frontend',async()=>{
 test('mobile bridge covers local API virtualization, SAF backup, compression, and Android back',async()=>{
   const source=await readFile(path.join(mobileRoot,'bridge.mjs'),'utf8');
   assert.match(source,/createLocalService\(/);
-  assert.match(source,/service\.handle\(url\.pathname, \{method, body\}\)/);
+  assert.match(source,/service\.handle\(url\.pathname \+ url\.search, \{method, body\}\)/);
   assert.match(source,/action:'export'/);
   assert.match(source,/action:'write', name, value\}/);
   assert.match(source,/action:'export', name, value:backup/);
@@ -63,6 +69,5 @@ test('mobile bridge covers local API virtualization, SAF backup, compression, an
   assert.match(source,/originalCreateImageBitmap\(file,/);
   assert.match(source,/App\.addListener\('backButton'/);
   assert.match(source,/Browser\.open\(\{url:url\.href\}\)/);
-  assert.match(source,/CapacitorHttp\.request\(/);
-  assert.match(source,/connectTimeout:15000, readTimeout:90000/);
+  assert.match(source,/createNetworkRequest\(\{native, capacitorHttp:CapacitorHttp/);
 });

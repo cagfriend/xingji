@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createLocalService} from '../local-service.mjs';
 
-function fixture({request=async()=>({status:200,data:{}}),places}={}){
+function fixture({request=async()=>({status:200,data:{}}),places,aircraftEnricher,cachePhoto}={}){
   const values=new Map();let id=0;let time=Date.parse('2026-10-01T12:00:00Z');
   const storage={async read(key){return values.has(key)?structuredClone(values.get(key)):null;},async write(key,value){values.set(key,structuredClone(value));}};
-  const service=createLocalService({storage,request,places,uuid:()=>`id-${++id}`,now:()=>time});
+  const service=createLocalService({storage,request,places,aircraftEnricher,cachePhoto,uuid:()=>`id-${++id}`,now:()=>time});
   return {service,values,advance(ms){time+=ms;}};
 }
 const flight=(extra={})=>({type:'flight',code:'CA1831',date:'2026-10-12',departure:'PEK',arrival:'SHA',departureTime:'07:00',...extra});
@@ -155,6 +155,59 @@ test('aircraft lookups normalize registrations and persist the cache',async()=>{
   const result=await service.handle('/api/aircraft/BHLM');
   assert.equal(result.registration,'B-HLM');assert.equal(result.photos[0].photographer,'Photographer');
   assert.match(calls[0],/reg\/B-HLM$/);assert.equal(values.get('aircraft-cache.json').BHLM.registration,'B-HLM');
+});
+
+test('historical aircraft lookup prefers cache and migrates remote photos locally',async()=>{
+  let options;let cached=0;const photo={image:'https://cdn.example/photo.jpg',link:'https://www.planespotters.net/photo/1/test'};
+  const {service,values}=fixture({aircraftEnricher:async value=>{options=value;return {aircraft:{registration:'B-HLM',model:'A320',photos:[photo]},photos:[photo]};},cachePhoto:async(p,{force})=>{cached++;return {...p,image:'file:///local/photo.jpg',remoteImage:p.image,localUri:'/local/photo.jpg',force};}});
+  values.set('trips.json',[{...flight({registration:'B-HLM',date:'2026-09-01'}),id:'old'}]);
+  const result=await service.handle('/api/aircraft/B-HLM');
+  assert.equal(options.preferCache,true);assert.equal(result.photos[0].remoteImage,photo.image);assert.equal(cached,1);
+  assert.equal(values.get('aircraft-cache.json').BHLM.photos[0].localUri,'/local/photo.jpg');
+});
+
+test('cached local photos are rechecked and hydrated to a fresh display URL on every lookup',async()=>{
+  const photo={image:'https://cdn.example/photo.jpg',link:'https://www.planespotters.net/photo/1/test'};let hydrated=0;
+  const {service,values}=fixture({aircraftEnricher:async()=>({aircraft:{registration:'B-HLM',model:'A320',photos:[photo]},photos:[photo]}),cachePhoto:async(p)=>{hydrated++;return {...p,image:`blob:display-${hydrated}`,remoteImage:p.remoteImage??p.image,localUri:'/local/photo.jpg'};}});
+  values.set('trips.json',[{...flight({registration:'B-HLM',date:'2026-09-01'}),id:'old'}]);
+  const first=await service.handle('/api/aircraft/B-HLM');const second=await service.handle('/api/aircraft/B-HLM');
+  assert.equal(hydrated,2);assert.equal(first.photos[0].image,'blob:display-1');assert.equal(second.photos[0].image,'blob:display-2');
+  assert.equal(second.photos[0].remoteImage,photo.image);
+});
+
+test('future-only aircraft lookup keeps ordinary refresh behavior and failed photo cache does not drop photos',async()=>{
+  let options;const photo={image:'https://cdn.example/photo.jpg',link:'https://www.planespotters.net/photo/1/test'};
+  const {service,values}=fixture({aircraftEnricher:async value=>{options=value;return {aircraft:{registration:'B-HLM',model:'A320',photos:[photo]},photos:[photo]};},cachePhoto:async()=>{throw new Error('disk full');}});
+  values.set('trips.json',[{...flight({registration:'B-HLM',date:'2026-10-12'}),id:'future'}]);
+  const result=await service.handle('/api/aircraft/B-HLM');
+  assert.equal(options.preferCache,false);assert.equal(result.photos.length,1);assert.equal(result.photos[0].image,photo.image);
+});
+
+test('aircraft refresh query passes stored same-registration models and preserves source headers and request controls',async()=>{
+  const calls=[];
+  let enrichment;
+  const {service,values}=fixture({request:async(options)=>{calls.push(options);return {status:200,data:{photos:[]}};},aircraftEnricher:async options=>{
+    enrichment={expectedModels:options.expectedModels,force:options.force};
+    const signal=new AbortController().signal;
+    await options.fetcher('https://api.planespotters.net/pub/photos/reg/B-HLM',{headers:{'User-Agent':'PlanespottersClient/1.0','Referer':'https://www.planespotters.net/'},signal,redirect:'manual',timeout:1250});
+    return {aircraft:{registration:'B-HLM',model:'',lookupStatus:{metadata:'conflict',photos:'ok'},photos:[{image:'https://cdn.example/p.jpg',link:'https://www.planespotters.net/photo/1/test'}]},photos:[{image:'https://cdn.example/p.jpg',link:'https://www.planespotters.net/photo/1/test'}]};
+  }});
+  values.set('trips.json',[
+    {...flight({registration:'B-HLM',aircraftType:'Boeing 737-800'}),id:'one'},
+    {...flight({registration:'B HLM',aircraftType:'Boeing 737'}),id:'two'},
+    {...flight({registration:'B-HLM',aircraftType:''}),id:'three'},
+    {...flight({registration:'B-OTHER',aircraftType:'Airbus A320'}),id:'four'},
+  ]);
+  const result=await service.handle('/api/aircraft/BHLM?refresh=1');
+  assert.equal(result.photos.length,1,'a metadata conflict does not hide a returned photo');
+  assert.equal(result.aircraft.lookupStatus.metadata,'conflict');
+  assert.equal(values.get('aircraft-cache.json').BHLM.registration,'B-HLM');
+  assert.deepEqual(calls[0].headers,{'User-Agent':'PlanespottersClient/1.0','Referer':'https://www.planespotters.net/'});
+  assert.equal(calls[0].signal.aborted,false);
+  assert.equal(calls[0].redirect,'manual');assert.equal(calls[0].timeout,1250);
+  // The enricher receives the model evidence and explicit refresh intent.
+  assert.deepEqual(enrichment.expectedModels,['Boeing 737-800','Boeing 737']);
+  assert.equal(enrichment.force,true);
 });
 
 test('confirmed create warms aircraft cache asynchronously without blocking trip writes',async()=>{

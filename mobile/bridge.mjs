@@ -2,10 +2,15 @@ import {Capacitor, CapacitorHttp, registerPlugin} from '@capacitor/core';
 import {App} from '@capacitor/app';
 import {Browser} from '@capacitor/browser';
 import {createLocalService} from './local-service.mjs';
+import {createNetworkRequest} from './network.mjs';
 import {installMobileShell} from './shell.mjs';
+import {createPhotoCache} from './photo-cache.mjs';
+import {installBottomSheets} from './bottom-sheet.mjs';
+import {prepareSheetLayouts} from './sheet-layout.mjs';
 
 const LocalFiles = registerPlugin('LocalFiles');
 const native = Capacitor.isNativePlatform();
+const cachePhoto=createPhotoCache({native,localFiles:LocalFiles,convertFileSrc:uri=>Capacitor.convertFileSrc(uri)});
 
 async function localRead(name) {
   if (!native) {
@@ -21,16 +26,7 @@ async function localWrite(name, value) {
   await LocalFiles.call({action:'write', name, value});
 }
 
-async function nativeRequest({url, method='GET', headers={}, data}) {
-  const parsed = new URL(url, location.href);
-  if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error('仅支持安全的 HTTP(S) 网络请求');
-  if (!native) {
-    const response = await fetch(url, {method, headers, ...(data === undefined ? {} : {body:typeof data === 'string' ? data : JSON.stringify(data)})});
-    return {status:response.status, data:await response.text()};
-  }
-  const result = await CapacitorHttp.request({url:parsed.href, method, headers, connectTimeout:15000, readTimeout:90000, ...(data === undefined ? {} : {data})});
-  return {status:result.status, data:result.data};
-}
+const nativeRequest = createNetworkRequest({native, capacitorHttp:CapacitorHttp, fetchImpl:globalThis.fetch.bind(globalThis), baseUrl:location.href});
 
 const placesResponse = await fetch('/map-data/places.json');
 if (!placesResponse.ok) throw new Error('机场目录暂时无法读取');
@@ -38,6 +34,7 @@ const places = await placesResponse.json();
 const service = createLocalService({
   storage:{read:localRead, write:localWrite},
   request:nativeRequest,
+  cachePhoto,
   places
 });
 
@@ -57,7 +54,7 @@ globalThis.fetch = async (input, init={}) => {
     if (text) { try { body = JSON.parse(text); } catch { body = text; } }
   }
   try {
-    const payload = await service.handle(url.pathname, {method, body});
+    const payload = await service.handle(url.pathname + url.search, {method, body});
     return new Response(JSON.stringify(payload ?? {}), {status:200, headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});
   } catch (error) {
     return new Response(JSON.stringify({error:error.message || '本机数据暂时无法处理', ...(error.details ?? {})}), {status:error.status ?? 500, headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});
@@ -179,6 +176,8 @@ function installAndroidBack() {
 }
 
 const shell = installMobileShell();
+prepareSheetLayouts();
+installBottomSheets();
 installBackupTools();
 installImageCompression();
 installExternalLinks();

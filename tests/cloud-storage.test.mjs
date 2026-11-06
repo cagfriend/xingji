@@ -16,6 +16,19 @@ function flight(id, code, date, extras = {}) {
   return {id, type: 'flight', code, date, departure: '北京首都国际机场（PEK）', arrival: '上海浦东国际机场（PVG）', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', ...extras};
 }
 
+test('aircraft cache persists lookup states, retry timestamps and safe thumbnail metadata',async()=>{
+  const {database,storage}=await fixture();
+  try {
+    await storage.writeEntry('aircraft-cache.json','B1508',{registration:'B-1508',model:'',year:null,resolverVersion:2,
+      lookupStatus:{metadata:'conflict',photos:'ok'},photosStatus:'ok',lookupAttemptedAt:1000,photosAttemptedAt:1000,photosUpdatedAt:1000,
+      photos:[{image:'https://t.plnspttrs.net/large.jpg',thumbnail:'https://t.plnspttrs.net/thumb.jpg',link:'https://www.planespotters.net/photo/123/example',photographer:'Author'}]});
+    const entry=(await storage.readJSON('aircraft-cache.json',{})).B1508;
+    assert.deepEqual(entry.lookupStatus,{metadata:'conflict',photos:'ok'});assert.equal(entry.resolverVersion,2);
+    assert.equal(entry.photosAttemptedAt,1000);assert.equal(entry.photos[0].thumbnail,'https://t.plnspttrs.net/thumb.jpg');
+    const snapshot=await storage.exportSnapshot();
+    assert.equal(snapshot.aircraftCache.B1508.lookupStatus.metadata,'conflict');
+  }finally{database.close();}
+});
 test('D1 schema enforces flight/date uniqueness and storage supports add, update, and delete', async () => {
   const {database, storage} = await fixture();
   try {

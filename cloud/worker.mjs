@@ -74,9 +74,10 @@ function assertConfirmed(input) { if (input.confirmed!==true) throw new RequestE
 
 // Dependencies are injected only by tests, never by request data or deployed environment flags.
 export function createWorker({fetcher=fetch, authorize=authorizeRequest}={}) {
-  async function lookup(storage,registration,origin) {
+  async function lookup(storage,registration,origin,{force=false}={}) {
     const cache=await storage.readJSON('aircraft-cache.json',{});
-    const result=await enrichAircraftRegistration({registration,cache,fetcher,origin});
+    const expectedModels=(await storage.listTrips()).filter(t=>registrationCompact(t.registration)===registrationCompact(registration)).map(t=>t.aircraftType).filter(Boolean);
+    const result=await enrichAircraftRegistration({registration,cache,fetcher,origin,force,expectedModels});
     if (result.aircraft) await storage.writeEntry('aircraft-cache.json',registrationCompact(registration),result.aircraft);
     return {aircraft:result.aircraft,photos:result.photos,registration:result.aircraft?.registration || registration};
   }
@@ -143,7 +144,7 @@ export function createWorker({fetcher=fetch, authorize=authorizeRequest}={}) {
       if (aircraftMatch && request.method==='GET') {
         let registration; try { registration=decodeURIComponent(aircraftMatch[1]); } catch { throw new RequestError('注册号格式不正确'); }
         if (!/^[A-Za-z0-9\s-]{2,24}$/.test(registration) || !registrationCompact(registration)) throw new RequestError('注册号格式不正确');
-        return json(await lookup(storage,registration,url.origin));
+        return json(await lookup(storage,registration,url.origin,{force:url.searchParams.get('refresh')==='1'}));
       }
       if (route==='/api/recognize' && request.method==='POST') {
         const input=await body(request);

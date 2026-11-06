@@ -80,10 +80,25 @@ test('cloud cache prewarms saved aircraft and handles registration aliases',asyn
     if(String(url).includes('planespotters'))return Response.json({photos:[{thumbnail:{src:'https://t.plnspttrs.net/photo.jpg'},link:'https://www.planespotters.net/photo/1/example',photographer:'Test Author',aircraft:{hex:'78018D'}}]});
     return Response.json({status:200,reg:'B-HLM',model:'2001 Airbus A330-343',cn:'386',country:'China',mode_s_code:'78018D',link:'https://airport-data.com/aircraft/B-HLM'});
   }});
-  assert.equal((await f.request('/api/trips','POST',{confirmed:true,trips:[{...flight,registration:'BHLM'}]})).status,201);
+  assert.equal((await f.request('/api/trips','POST',{confirmed:true,trips:[{...flight,aircraftType:'Airbus A330-343',registration:'BHLM'}]})).status,201);
   await Promise.all(f.tasks);
   assert.equal((await f.storage.readJSON('aircraft-cache.json',{})).BHLM.model,'2001 Airbus A330-343');
   const details=await (await f.request('/api/aircraft/B-HLM')).json();assert.equal(details.photos[0].photographer,'Test Author');assert.equal(calls,2);
+});
+test('cloud returns photos despite metadata conflict and accepts forced refresh',async t=>{
+  let photoCalls=0;
+  const f=await fixture(t,{fetcher:async url=>{
+    if(String(url).includes('planespotters')){photoCalls++;return Response.json({photos:[{thumbnail:{src:'https://t.plnspttrs.net/photo.jpg'},link:'https://www.planespotters.net/photo/1/example',photographer:'Independent Author'}]});}
+    return new Response('<title>Aircraft Data B-1508, 2006 Columbia Aircraft Mfg LC-41-550FG Columbia 400, c/n 41624</title><table><tr><td>Manufacturer</td><td>Columbia</td></tr><tr><td>Model</td><td>LC-41-550FG</td></tr></table>');
+  }});
+  await f.request('/api/trips','POST',{confirmed:true,trips:[{...flight,registration:'B1508'}]});
+  await Promise.all(f.tasks);
+  const detail=await (await f.request('/api/aircraft/B1508')).json();
+  assert.equal(detail.aircraft.lookupStatus.metadata,'conflict');assert.equal(detail.aircraft.model,'');
+  assert.equal(detail.photos[0].photographer,'Independent Author');
+  const before=photoCalls;
+  await f.request('/api/aircraft/B1508?refresh=1');assert.ok(photoCalls>before);
+  assert.equal((await f.storage.listTrips())[0].aircraftType,'波音 737-800');
 });
 test('cloud import is idempotent, validated, atomic and secret-free',async t=>{
   const f=await fixture(t);

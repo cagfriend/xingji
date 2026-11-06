@@ -49,23 +49,38 @@ function openTripDetails(trip) {
   const dialog=$('#trip-detail-dialog');const body=$('#trip-detail-body');const request=++state.detailRequest;
   $('#trip-detail-title').textContent=`航班 ${trip.code}`;body.replaceChildren();
   body.append(detailTable([['日期',trip.date],['起飞机场',trip.departure],['起飞航站楼',trip.departureTerminal],['预计起飞',[trip.date,trip.departureTime].filter(Boolean).join(' ')],['实际起飞',[trip.actualDepartureDate,trip.actualDepartureTime].filter(Boolean).join(' ')],['降落机场',trip.arrival],['降落航站楼',trip.arrivalTerminal],['预计降落',[trip.arrivalDate,trip.arrivalTime].filter(Boolean).join(' ')],['实际降落',[trip.actualArrivalDate,trip.actualArrivalTime].filter(Boolean).join(' ')],['记录机型',trip.aircraftType],['飞机注册号',trip.registration],['票价',trip.ticketPrice],['座位',trip.seat]]));
-  const section=node('section','aircraft-info');section.append(node('h3','','飞机资料与照片'));
-  const status=node('p','muted aircraft-status',trip.registration?'正在查询飞机资料与 Planespotters 照片…':'该航班没有填写飞机注册号，暂时无法匹配飞机资料。');section.append(status);body.append(section);
+  const section=node('section','aircraft-info');const heading=node('div','aircraft-info-heading');heading.append(node('h3','','飞机资料与照片'));
+  const retry=node('button','button secondary aircraft-refresh','重新查询');retry.type='button';retry.hidden=!trip.registration;heading.append(retry);section.append(heading);
+  const content=node('div','aircraft-info-content');section.append(content);body.append(section);
   if(!dialog.open)dialog.showModal();
-  if(!trip.registration)return;
-  api(`/api/aircraft/${encodeURIComponent(trip.registration)}`).then(result=>{
-    if(request!==state.detailRequest||!dialog.open)return;
-    status.remove();
+  if(!trip.registration){content.append(node('p','muted aircraft-status','该航班没有填写飞机注册号，暂时无法匹配飞机资料。'));return;}
+  let lookupRequest=0;
+  async function loadAircraft(force=false){
+    const ticket=++lookupRequest;retry.disabled=true;
+    content.replaceChildren(node('p','muted aircraft-status','正在查询飞机资料与 Planespotters 照片…'));
+    try{
+    const result=await api(`/api/aircraft/${encodeURIComponent(trip.registration)}${force?'?refresh=1':''}`);
+    if(request!==state.detailRequest||ticket!==lookupRequest||!dialog.open)return;
+    content.replaceChildren();
     const aircraft=result.aircraft;
-    const year=Number(aircraft?.model?.match(/\b(?:19|20)\d{2}\b/)?.[0]);const estimatedAge=year?`约 ${new Date().getFullYear()-year} 年（按生产年份估算）`:'';
+    const parsedYear=Number(aircraft?.year||aircraft?.model?.match(/\b(?:19|20)\d{2}\b/)?.[0]);
+    const year=Number.isInteger(parsedYear)&&parsedYear>=1900&&parsedYear<=new Date().getFullYear()?parsedYear:0;
+    const estimatedAge=year?`约 ${new Date().getFullYear()-year} 年（按生产年份估算）`:'';
     const values=[['匹配注册号',aircraft?.registration||result.registration],['机型',aircraft?.model||trip.aircraftType],['生产年份',year?String(year):''],['估算机龄',estimatedAge],['制造序列号',aircraft?.constructorNumber],['登记国家/地区',aircraft?.country],['Mode-S',aircraft?.modeSCode]];
-    if(aircraft?.model||aircraft?.constructorNumber||aircraft?.country||aircraft?.modeSCode)section.append(detailTable(values));
+    if(aircraft?.model||aircraft?.constructorNumber||aircraft?.country||aircraft?.modeSCode)content.append(detailTable(values));
+    const metadataStatus=aircraft?.lookupStatus?.metadata;
+    if(metadataStatus==='conflict')content.append(node('p','muted aircraft-status','查询资料与记录机型不一致，未采用。'));
     const photos=Array.isArray(result.photos)?result.photos:[];
-    if(photos.length){const gallery=node('div','aircraft-photo-gallery');for(const photo of photos){const figure=node('figure','aircraft-photo');const link=node('a');link.href=photo.link;link.target='_blank';link.rel='noopener noreferrer';link.title='在 Planespotters.net 查看原照片';const image=node('img');image.src=photo.image;image.alt=`${result.registration} 飞机照片`;image.loading='lazy';image.referrerPolicy='no-referrer';link.append(image);figure.append(link,node('figcaption','',`© ${photo.photographer} · Planespotters.net`));gallery.append(figure);}section.append(gallery);}
-    else {const empty=node('p','muted','暂时没有可显示的照片；');const link=node('a','aircraft-photo-search','在 Planespotters.net 搜索此注册号');link.href=`https://www.planespotters.net/photos/reg/${encodeURIComponent(result.registration||trip.registration)}`;link.target='_blank';link.rel='noopener noreferrer';empty.append(link);section.append(empty);}
-    if(aircraft?.sourceUrl){const source=node('a','aircraft-source','飞机资料来源：Airport-Data.com');source.href=aircraft.sourceUrl;source.target='_blank';source.rel='noopener noreferrer';section.append(source);}
-    const queried=node('p','aircraft-updated',aircraft?.updatedAt?`资料缓存更新：${new Date(aircraft.updatedAt).toLocaleDateString('zh-CN')}`:'飞机资料尚未匹配到 Airport-Data 记录。');section.append(queried);
-  }).catch(error=>{if(request===state.detailRequest&&dialog.open)status.textContent=`飞机资料暂时无法加载：${error.message}`;});
+    if(photos.length){const gallery=node('div','aircraft-photo-gallery');for(const photo of photos){const figure=node('figure','aircraft-photo');const link=node('a');link.href=photo.link;link.target='_blank';link.rel='noopener noreferrer';link.title='在 Planespotters.net 查看原照片';const image=node('img');image.src=photo.image;image.alt=`${result.registration||trip.registration} 飞机照片`;image.loading='lazy';image.referrerPolicy='no-referrer';let usedThumbnail=false;image.onerror=()=>{if(!usedThumbnail&&photo.thumbnail&&photo.thumbnail!==photo.image){usedThumbnail=true;image.src=photo.thumbnail;}else{image.onerror=null;image.remove();figure.append(node('p','muted','照片暂时无法加载。'));}};link.append(image);figure.append(link,node('figcaption','',`© ${photo.photographer} · Planespotters.net`));gallery.append(figure);}content.append(gallery);}
+    else {const empty=node('p','muted','暂时没有可显示的照片；');const link=node('a','aircraft-photo-search','在 Planespotters.net 搜索此注册号');link.href=`https://www.planespotters.net/photos/reg/${encodeURIComponent(result.registration||trip.registration)}`;link.target='_blank';link.rel='noopener noreferrer';empty.append(link);content.append(empty);}
+    if(aircraft?.sourceUrl){const source=node('a','aircraft-source','飞机资料来源：Airport-Data.com');source.href=aircraft.sourceUrl;source.target='_blank';source.rel='noopener noreferrer';content.append(source);}
+    if(aircraft?.updatedAt)content.append(node('p','aircraft-updated',`资料缓存更新：${new Date(aircraft.updatedAt).toLocaleDateString('zh-CN')}`));
+    else if(metadataStatus!=='conflict')content.append(node('p','aircraft-updated',metadataStatus==='not-found'?'资料来源未收录此注册号。':'飞机资料暂时无法获取。'));
+    }catch(error){if(request===state.detailRequest&&ticket===lookupRequest&&dialog.open)content.replaceChildren(node('p','muted aircraft-status',`查询暂时失败：${error.message}`));}
+    finally{if(ticket===lookupRequest)retry.disabled=false;}
+  }
+  retry.onclick=()=>loadAircraft(true);
+  void loadAircraft();
 }
 $('#close-trip-detail').onclick=()=>{$('#trip-detail-dialog').close();state.detailRequest++;};
 function renderTrips() {

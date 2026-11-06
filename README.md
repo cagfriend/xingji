@@ -4,13 +4,17 @@ Android 本地航班记录应用，同时包含桌面版和可自行部署的 Cl
 
 ## Android 安装
 
-最新版本 **1.4.1**：[直接下载 APK](https://github.com/cagfriend/xingji/releases/download/android-v1.4.1/xingji-1.4.1.apk)，或打开 [Releases 发布页](https://github.com/cagfriend/xingji/releases/latest)。
+最新版本 **1.8.0**：[直接下载 APK](https://github.com/cagfriend/xingji/releases/download/android-v1.8.0/xingji-1.8.0.apk)，或打开 [Releases 发布页](https://github.com/cagfriend/xingji/releases/latest)。
 
 Android 7.0 及以上可安装。已有行迹 App 可直接覆盖安装，使用相同包名和签名，保留本机记录与 API 设置。不要先卸载或清除数据。
 
 应用不预置个人行程或 API Key；用户可在设置中填写自己的 API。支持自然语言／票据截图识别、确认后保存、航班号与日期去重、航线地图、历史统计、飞机资料与照片、JSON 导入导出。安装包内置全球概览级离线地图，不等同于街道导航地图。
 
-1.4.1 修复底部提示被导航栏遮挡的问题，提示现在显示在导航栏上方；横竖屏和系统安全区布局检查通过。其他界面保持不变。
+1.8.0 将地图航线、机场和航班详情改为默认半屏的底部信息框：拖动顶部横条上滑至四分之三屏、下滑收回，没有展开按钮；照片与作者置顶，随后显示航班和执飞飞机资料。包含随 Android 系统切换的深色模式，以及历史航班资料和照片文件的持久本地缓存；保留重新查询和失败回退。
+
+本版本已通过 139 项自动测试、底部信息框交互与断网缓存浏览器检查，以及 Android 构建和 lint 检查。发布 APK 与此前版本使用相同签名，已在小米 14 上覆盖安装并启动。
+
+APK SHA-256：`F98056D2051B0F7EFE9BED424820135D6AF79C8AC7393708149B8EF7C76997C8`。
 
 源码构建方法见 [Android 说明](mobile/README.md)。仓库不包含个人数据、部署私密配置、签名私钥或本机工具链。重新构建时需要自行配置工具链和签名；自行签名的包不能直接覆盖官方发布包。
 
